@@ -2,46 +2,25 @@ import java.io.ObjectInputStream;
 import java.io.IOException; // Importa IOException
 
 public class FilLectorCX extends Thread {
-    private ObjectInputStream in;
-    private volatile boolean continuarLeyendo = true; // Bandera de control
+    private ObjectInputStream in; // Cambiado a ObjectInputStream
 
-    public FilLectorCX(ObjectInputStream in) {
+    // Constructor con el stream
+    public FilLectorCX(ObjectInputStream in) { // Recibe ObjectInputStream
         this.in = in;
-    }
-
-    public void detener() {
-        continuarLeyendo = false;
     }
 
     @Override
     public void run() {
         try {
             String missatge;
-            while (continuarLeyendo) { // Comprueba la bandera
-                try {
-                    missatge = (String) in.readObject();
-                    if (missatge == null) {
-                        break; // Salir si readObject() devuelve null (conexión cerrada)
-                    }
-                    System.out.println("Servidor: " + missatge);
-                } catch (IOException e) {
-                    if (continuarLeyendo) { // Imprimir solo si no se detuvo explícitamente
-                        System.err.println("Error en FilLectorCX (IO): " + e.getMessage());
-                    }
-                    break; // Salir del bucle en caso de error de IO
-                } catch (ClassNotFoundException e) {
-                    System.err.println("Error en FilLectorCX (Class): " + e.getMessage());
-                    break;
-                }
+            // Método de ejecución que recibe los mensajes del Chat
+            while ((missatge = (String) in.readObject()) != null) {
+                System.out.println("Servidor: " + missatge);
             }
-        } finally {
-            try {
-                if (in != null) {
-                    in.close(); // Asegurar cierre del stream aquí
-                }
-            } catch (IOException e) {
-                System.err.println("Error al cerrar el stream en FilLectorCX: " + e.getMessage());
-            }
+        } catch (IOException e) {
+            System.err.println("Error al llegir missatge del servidor (IO): " + e.getMessage());
+        } catch (ClassNotFoundException e) {
+            System.err.println("Error al llegir missatge del servidor (Class): " + e.getMessage());
         }
     }
 }

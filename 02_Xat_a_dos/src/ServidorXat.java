@@ -68,8 +68,11 @@ public class ServidorXat {
                 System.out.println("Missatge ('sortir' per tancar): Rebut: " + entrada); // Changed output
                 out.writeObject(entrada);
                 out.flush();
+                System.out.println("Servidor: Enviat: " + entrada); // Added line
             }
+
             System.out.println("Fil de xat finalitzat."); // Added line
+            System.out.println("sortir"); // Added line
             fil.join();
             servidor.pararServidor();
 

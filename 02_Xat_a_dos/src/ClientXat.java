@@ -11,7 +11,7 @@ public class ClientXat {
         try {
             socket = new Socket("localhost", 9999);
             System.out.println("Client connectat a localhost:9999");
-            System.out.println("Flux dentrada i sortida creat");
+            System.out.println("Flux d'entrada i sortida creat.");
             out = new ObjectOutputStream(socket.getOutputStream());
             in = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
@@ -30,9 +30,11 @@ public class ClientXat {
 
     public void tancarClient() {
         try {
+            System.out.println("Tancant client...");
             if (socket != null && !socket.isClosed()) socket.close();
             if (out != null) out.close();
             if (in != null) in.close();
+            System.out.println("Client tancat.");
         } catch (IOException e) {
             System.err.println("Error al tancar client: " + e.getMessage());
         }
@@ -61,8 +63,6 @@ public class ClientXat {
         client.enviarMissatge("sortir");
         System.out.println("Enviant missatge: sortir"); // Print "Enviant missatge:"
         client.tancarClient();
-        System.out.println("Tancant client...");
-        System.out.println("Client tancat.");
         System.out.println("El servidor ha tancat la connexió.");
         scanner.close();
     }
