@@ -44,7 +44,7 @@ public class Client {
                     System.out.println("Fitxer no trobat o buit al servidor.");
                 }
             }
-    
+            scanner.close();
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }

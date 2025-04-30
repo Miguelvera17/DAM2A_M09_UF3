@@ -1,129 +1,67 @@
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.io.*;
+import java.net.*;
 
 public class Servidor {
-
     private static final int PORT = 9999;
     private static final String HOST = "localhost";
     private ServerSocket serverSocket;
-    private Socket clientSocket;
-    private BufferedReader entradaCliente;
-    private PrintWriter salidaCliente;
-    private DataOutputStream dosCliente;
-    private BufferedReader entradaServidorConsola = new BufferedReader(new InputStreamReader(System.in));
-    private volatile boolean running = true;
 
-    public void iniciarServidor() {
-        try {
-            serverSocket = new ServerSocket(PORT);
-            System.out.println("Servidor acceptant connexions en -> " + HOST + ":" + PORT);
-
-            while (running) {
-                System.out.println("Esperant connexió...");
-                clientSocket = serverSocket.accept();
-                System.out.println("Connexió acceptada: " + clientSocket.getInetAddress().getHostAddress());
-
-                entradaCliente = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                salidaCliente = new PrintWriter(clientSocket.getOutputStream(), true);
-                dosCliente = new DataOutputStream(clientSocket.getOutputStream());
-
-                // Iniciar hilo para leer comandos del servidor desde la consola
-                Thread leerConsolaServidor = new Thread(this::leerComandosServidor);
-                leerConsolaServidor.start();
-
-                // Bucle para manejar la comunicación con el cliente conectado
-                while (running && clientSocket.isConnected()) {
-                    System.out.println("Esperant el nom del fitxer del client...");
-                    String nomFitxerClient = entradaCliente.readLine();
-
-                    if (nomFitxerClient == null || nomFitxerClient.equalsIgnoreCase("sortir")) {
-                        System.out.println("El client ha tancat la connexió o ha sol·licitat sortir.");
-                        break;
-                    }
-
-                    System.out.println("Nomfitxer rebut del client: " + nomFitxerClient);
-
-                    Fitxer fitxerAEnviar = new Fitxer(nomFitxerClient);
-                    byte[] contingutFitxer = fitxerAEnviar.getContingut();
-
-                    if (contingutFitxer != null) {
-                        System.out.println("Contingut del fitxer a enviar: " + contingutFitxer.length + " bytes");
-                        salidaCliente.println("FICHERO"); // Indicar al cliente que se va a enviar un fichero
-                        salidaCliente.println(fitxerAEnviar.getNom());
-                        dosCliente.writeLong(contingutFitxer.length);
-                        dosCliente.write(contingutFitxer);
-                        dosCliente.flush();
-                        System.out.println("Fitxer enviat al client: " + fitxerAEnviar.getNom());
-                    } else {
-                        System.err.println("Error llegint el fitxer del client: null");
-                        salidaCliente.println("ERROR_FICHERO"); // Indicar al cliente que hubo un error
-                    }
-                }
-                tancarConnexioClient(); // Cerrar la conexión con el cliente actual
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            tancarServidor();
-        }
+    public Socket connectar() throws IOException {
+        serverSocket = new ServerSocket(PORT);
+        System.out.println("Acceptant connexions en -> " + HOST + ":" + PORT);
+        System.out.println("Esperant connexió...");
+        Socket socket = serverSocket.accept();
+        System.out.println("Connexió acceptada: " + socket.getInetAddress());
+        return socket;
     }
 
-    private void leerComandosServidor() {
+    public void enviarFitxers(Socket socket) {
         try {
-            while (running) {
-                System.out.println("Introduce un comando ('sortir' para cerrar el servidor):");
-                String comandoServidor = entradaServidorConsola.readLine();
-                if (comandoServidor != null && comandoServidor.equalsIgnoreCase("sortir")) {
-                    running = false;
-                    if (salidaCliente != null) {
-                        salidaCliente.println("sortir"); // Informar al cliente para que cierre
-                    }
+            DataInputStream dis = new DataInputStream(socket.getInputStream());
+            ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+            System.out.println("Esperant el nom del fitxer del client...");
+            while (true) {
+                String nomFitxer;
+                try {
+                    nomFitxer = dis.readUTF();
+                } catch (EOFException e) {
+                    nomFitxer = null;
+                }
+    
+                if (nomFitxer == null || nomFitxer.trim().isEmpty()) {
+                    System.out.println("Error llegint el fitxer del client: null");
+                    System.out.println("Nom del fitxer buit o nul. Sortint...");
                     break;
-                } else if (comandoServidor != null && !comandoServidor.isEmpty()) {
-                    // Aquí puedes agregar lógica para otros comandos del servidor si los necesitas
-                    System.out.println("Comando del servidor rebut: " + comandoServidor);
-                    if (salidaCliente != null) {
-                        salidaCliente.println("SERVIDOR_OK"); // Enviar una respuesta genérica al cliente
-                    }
+                }
+    
+                System.out.println("NomFitxer rebut: " + nomFitxer);
+    
+                Fitxer fitxer = new Fitxer(nomFitxer);
+                byte[] dades = fitxer.getContingut();
+    
+                if (dades == null) {
+                    System.out.println("Error llegint el fitxer del client: null");
+                    oos.writeObject(null);
+                } else {
+                    System.out.println("Contingut del fitxer a enviar: " + dades.length + " bytes");
+                    oos.writeObject(dades);
+                    System.out.println("Fitxer enviat al client: " + nomFitxer);
                 }
             }
+    
         } catch (IOException e) {
-            if (running) {
-                e.printStackTrace();
-                System.err.println("Error al leer comandos del servidor.");
-            }
-        } finally {
-            tancarServidor();
+            System.out.println("Error llegint el fitxer del client: null");
+            System.out.println("Nom del fitxer buit o nul. Sortint...");
         }
     }
+    
+    
 
-    public void tancarConnexioClient() {
+    public void tancarConnexio(Socket socket) {
         try {
-            if (salidaCliente != null) salidaCliente.close();
-            if (entradaCliente != null) entradaCliente.close();
-            if (dosCliente != null) dosCliente.close();
-            if (clientSocket != null && !clientSocket.isClosed()) {
-                System.out.println("Tancant connexió amb el client: " + clientSocket.getInetAddress().getHostAddress());
-                clientSocket.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void tancarServidor() {
-        try {
-            running = false;
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                System.out.println("Tancant el servidor.");
-                serverSocket.close();
-            }
-            if (entradaServidorConsola != null) entradaServidorConsola.close();
+            if (socket != null) socket.close();
+            if (serverSocket != null) serverSocket.close();
+            System.out.println("Tancant connexió amb el client " + socket.getInetAddress());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -131,6 +69,12 @@ public class Servidor {
 
     public static void main(String[] args) {
         Servidor servidor = new Servidor();
-        servidor.iniciarServidor();
+        try {
+            Socket socket = servidor.connectar();
+            servidor.enviarFitxers(socket);
+            servidor.tancarConnexio(socket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
